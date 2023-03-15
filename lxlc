@@ -1,0 +1,57 @@
+#!/usr/bin/python3
+import os
+import pprint
+import re
+import argparse
+
+
+class LatexLabelCounter:
+    def __init__(self):
+        self.label_dict: dict[str, list[int]] = {}
+        self.pattern = re.compile(r"\\label\{[^}]*\}", re.IGNORECASE)
+
+    def count_in_document(self, filepath):
+        if not os.path.exists(filepath):
+            raise FileNotFoundError(f"File {filepath} not found.")
+        with open(filepath, "r") as fp:
+            lines = fp.readlines()
+        for line_nr, line in enumerate(lines):
+            labels = self.pattern.findall(line)
+            if len(labels) > 0:
+                for label in labels:
+                    label = label.replace(r"\label{", "")
+                    label = label.replace(r"}", "")
+                    if label in self.label_dict:
+                        self.label_dict[label].append(line_nr)
+                    else:
+                        self.label_dict[label] = [line_nr]
+
+    def print(self):
+        labels = sorted(self.label_dict.keys())
+        print(f"{'label':<30s} | {'line number':<20s} | status")
+        print(f"{'-'*30:<30s}-+-{'-'*20:<20s}-+-{'-'*8:<8s}")
+        for label in labels:
+            line_nrs = self.label_dict[label]
+            if len(line_nrs) > 1:
+                status = "[ WARN ]"
+            else:
+                status = "[  OK  ]"
+            line_nrs = [str(line_nr) for line_nr in line_nrs]
+            line_nrs = ", ".join(line_nrs)
+            print(f"{label:>30s} | {line_nrs:>20s} | {status}")
+
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(
+                        prog='LaTeX label counter',
+                        description='Shows labels with corresponding line numbers and warns if a label has been duplicated.',
+                        epilog='Copyright 2023 Gilbert Francois Duivesteijn')
+    parser.add_argument('filename', help="File name")
+    args = parser.parse_args()
+    filepath = args.filename
+
+    lxlc = LatexLabelCounter()
+    lxlc.count_in_document(filepath)
+    lxlc.print()
+
